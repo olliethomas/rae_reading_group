@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>AL</title>
+    </head>
+    <body></body>
+</html>
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<head>
+    <script src="https://olliethomas.github.io/html-components/template.v2.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf8" />
+</head>
+
+<body>
+    <pal-header></pal-header>
+    <d-front-matter>
+        <script id="distill-front-matter" type="text/json">
+            {
+                "title": "From Variational to Deterministic Autoencoders",
+                "description": "Reading Group Presentation 10th June 2020.",
+                "published": "19 June, 2020",
+                "authors": [
+                    {
+                        "author": "Oliver Thomas",
+                        "authorURL": "https://predictive-analytics-lab.github.io/",
+                        "affiliations": [
+                            {
+                                "name": "University of Sussex",
+                                "url": "https://predictive-analytics-lab.github.io/"
+                            }
+                        ]
+                    }
+                ],
+                "katex": {
+                    "delimiters": [{ "left": "$$", "right": "$$", "display": false }]
+                }
+            }
+        </script>
+    </d-front-matter>
+
+    <d-title>
+        <p>
+            Reading Group Presentation 10th June 2020 &middot;
+            <a href="https://iclr.cc/virtual_2020/poster_S1g7tpEYDS.html">Paper</a> &middot;
+        </p>
+    </d-title>
+    <d-byline></d-byline>
+    <d-article>
+        <a class="marker" href="#section-1" id="section-1"><span>1</span></a>
+        <h1>What's the problem with Variational Autoencoders?</h1>
+        <p>
+            This paper starts off by saying that Variational Autoencoders (VAEs) are great. There
+            are a number of reasons for the greatness, but the predominant reason is that they are
+            theoretically justified. There is however, a problem. The images produced just aren't
+            that great - they're often blurry.
+        </p>
+        <aside>
+            "In theory, theory and practice are the same. In practice, they are not." - B. Brewster,
+            June 1882 issue of 'The Yale Literary Magazine'.
+        </aside>
+        <p>
+            The authors attribute the problem of this <em>"blurriness"</em> to the training
+            objective.
+            <d-math>
+                \mathcal{L}_{\textrm{VAE}} = \mathcal{L}_{\textrm{rec}} + \mathcal{L}_{\textrm{KL}}
+            </d-math>
+            But how do we go about attacking this objective? The authors take aim at the
+            <a href="https://gregorygundersen.com/blog/2018/04/29/reparameterization/"
+                >reparameterization trick</a
+            >
+        </p>
+        <aside>
+            The VAE training objective has the goal of making exact reconstructions that fit some
+            prior at a bottleneck in latent space.
+        </aside>
+
+        <a class="marker" href="#section-2" id="section-2"><span>2</span></a>
+        <h1>In practice, we use the VAE differently to the theory.</h1>
+        <p>A typcial VAE setup looks like this</p>
+        <figure style="grid-column: text; margin: 1rem 0;">
+            <img
+                src="https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Foliverthomas%2FnS3d6r2MzX.png?alt=media&token=2a169193-e369-46c0-ba8d-d8445dc48c51"
+            />
+        </figure>
+        <p>
+            We have an embedding space (posterior) modelled as a distribution
+            <d-math>p(z|x)</d-math> and a reconstruction modelled as a distribution
+            <d-math>p(x|z)</d-math>.
+        </p>
+        <p>
+            We then compute the
+            <a
+                href="https://www.countbayesie.com/blog/2017/5/9/kullback-leibler-divergence-explained"
+                >KL Divergence</a
+            >
+            between the posterior and some pre-determined (though usually Gaussian) prior.
+        </p>
+        <figure style="grid-column: text; margin: 1rem 0;">
+            <img
+                src="https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Foliverthomas%2FRH3FVKS0PV.png?alt=media&token=918255e9-5809-425e-bd1f-41b2164d9a61"
+            />
+        </figure>
+
+        <p>The authors however have 2 problems with this.</p>
+        <ol>
+            <li>
+                During training, really we should take many samples from <d-math>p(z|x)</d-math> to
+                give an expectation. Because this is slow however, during the training stage we
+                usually draw one sample.
+            </li>
+            <li>
+                To generate new samples, we draw from the prior. But if the prior doesn't match the
+                posterior, then we are drawing samples from an unknown region. For example, in
+                practice, the below is often observed.
+            </li>
+        </ol>
+        <figure style="grid-column: text; margin: 1rem 0;">
+            <img
+                src="https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Foliverthomas%2Fp8xRuFxizg.png?alt=media&token=a1a4af4f-ed5a-4d4b-8c64-c9f399e86bde"
+            />
+        </figure>
+        <p>Their solutions to these point are the following</p>
+        <ol>
+            <li>
+                have a deterministic encoder and decoder that both map inputs to points, not
+                distributions. Then, lots of sampling (Monte Carlo estimation) isn't required
+                anymore.
+            </li>
+            <li>
+                get rid of the KL term. Instead, regularize the norm of the latent representation.
+            </li>
+        </ol>
+        <p>
+            WAIT!? WHAT!? Get rid of the KL term? Then the prior will be meaningless. How then do we
+            generate new samples?
+        </p>
+
+        <a class="marker" href="#section-3" id="section-3"><span>3</span></a>
+        <h1>Sampling without a prior</h1>
+        <p>
+            What's really the goal of sampling? To generate plausible new samples. We use the prior
+            because it makes sense that the latent space should be similar to the space that we've
+            constrained it to be similar to. But without this constraint, we certainly can't use the
+            prior as a "best guess" of what the latent space looks like. In this paper they propose
+            "Ex-Post Density Estimation" (XPDE), which sounds cool, but is very simple.
+        </p>
+        <h2>Ex-Post Density Estimation</h2>
+        <p>
+            We have an encoder <d-math>E: x \rightarrow z</d-math> that goes from
+            <d-math>x</d-math> to <d-math>z</d-math>. XPDE says let's train a model (such as a GMM)
+            to model this.
+        </p>
+        <!-- prettier-ignore -->
+        <d-code block language="python">
+            # Python 3: RAE Training Procedure.
+            def rae_training_procedure(x: InputSample):
+                encoder = Encoder()
+                decoder = Decoder()
+                # Fit Encoder and Decoder
+                z = encoder(x)
+                xpde_model = GMM()
+                xpde_model.fit(x, z)
+
+                # Draw new samples
+                z_prime = xpde_model.get_posterior().sample()
+                new_sample = decoder(z_prime)
+
+        </d-code>
+
+        <p>
+            The authors point out that this could also be used to solve the prior/posterior mismatch
+            problem directly. They have results for this. It seems to do better than vanilla VAE.
+        </p>
+    </d-article>
+
+    <d-appendix>
+        <d-bibliography src="bibliography.bib"></d-bibliography>
+    </d-appendix>
+
+    <pal-footer></pal-footer>
+</body>
